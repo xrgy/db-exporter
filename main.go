@@ -24,7 +24,11 @@ func init()  {
 func runCollector(collector prometheus.Collector,w http.ResponseWriter,r *http.Request)  {
 	registry:= prometheus.NewRegistry()
 	registry.MustRegister(collector)
-	h:=promhttp.HandlerFor(registry,promhttp.HandlerOpts{})
+	gatherers := prometheus.Gatherers{
+		prometheus.DefaultGatherer,
+		registry,
+	}
+	h:=promhttp.HandlerFor(gatherers,promhttp.HandlerOpts{})
 	h.ServeHTTP(w,r)
 }
 func main() {
@@ -41,8 +45,10 @@ func handler(w http.ResponseWriter,r *http.Request)  {
 		http.Error(w,"'target' parameter must be specified",400)
 		return
 	}
+	atr:=strings.Split(fmt.Sprintf("%s",r.URL),"?")[0]
+	fmt.Sprintf(atr)
 	switch strings.Split(fmt.Sprintf("%s",r.URL),"?")[0] {
-	case "mysql":
+	case "/mysql":
 		collectorType = collectors.MysqlCollector{target}
 		break
 	default:

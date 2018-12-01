@@ -15,7 +15,7 @@ const (
 	cacheSizeQuery = `select @@global.query_cache_size`
 	cacheLimitQuery = `select @@global.query_cache_limit`
 	cacheHitsQuery = `SHOW GLOBAL STATUS where Variable_name in('Qcache_hits')`
-	qcachefree_blocksQuery = `SHOW GLOBAL STATUS where Variable_name in('_blocks')`
+	qcachefree_blocksQuery = `SHOW GLOBAL STATUS where Variable_name in('Qcache_free_blocks')`
 	qcachefree_memoryQuery = `SHOW GLOBAL STATUS where Variable_name in('Qcache_free_memory')`
 	qcachetotal_blocksQuery = `SHOW GLOBAL STATUS where Variable_name in('Qcache_total_blocks')`
 	qcache_insertsQuery = `SHOW GLOBAL STATUS where Variable_name in('Qcache_inserts')`

@@ -1,5 +1,5 @@
 repository:
-    path: /root/gowork/src/github.com/prometheus/db-exporter
+    path: db-exporter
 build:
     flags: -a -tags netgo
     ldflags: |

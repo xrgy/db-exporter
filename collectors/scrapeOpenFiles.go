@@ -15,7 +15,7 @@ var (
 	openFilesLimitDesc = prometheus.NewDesc(prometheus.BuildFQName("mysql","","openFilesLimit"),"",nil,nil)
 	)
 func ScrapeOpenFiles(db *sql.DB,ch chan<- prometheus.Metric) error {
-	config.DoQueryWithTwoResult(openFilesDesc,db,ch,operationQuery)
+	config.DoQueryWithTwoResult(openFilesDesc,db,ch,openFilesQuery)
 	config.DoQueryWithTwoResult(openFilesLimitDesc,db,ch,openFilesLimitQuery)
 	return nil
 }

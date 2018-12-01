@@ -30,7 +30,11 @@ func (c MysqlCollector) Collect(ch chan<- prometheus.Metric) {
 	getMysqlData(ch,c.Target)
 }
 func getMysqlData(ch chan<- prometheus.Metric,target string) error {
-	monitor_info := config.GetMonitorInfo(target)
+	monitor_info,err := config.GetMonitorInfo(target)
+	if err!=nil {
+		log.Printf("get monitorinfo error",err.Error())
+		return err
+	}
 	ip := monitor_info.IP
 	username := monitor_info.Params_maps["username"]
 	password := monitor_info.Params_maps["password"]

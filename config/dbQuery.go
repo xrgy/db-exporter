@@ -13,13 +13,13 @@ import (
 var db *sql.DB
 
 type ConnectInfoData struct {
-	Uuid 		string
+	Uuid        string
 	IP          string
 	Params_maps map[string]string
 }
 type Monitor_info []byte
 type ConnectInfo struct {
-	uuid string
+	uuid   string
 	ip     string
 	m_info Monitor_info
 }
@@ -43,36 +43,42 @@ func GetDBHandle() *sql.DB {
 	}
 	return db
 }
-func GetMonitorInfo(id string) ConnectInfoData {
-	info := queryConnectInfo(id)
-	m:=info.m_info
+func GetMonitorInfo(id string) (ConnectInfoData,error) {
+	info,err := queryConnectInfo(id)
+	if err!=nil {
+		log.Printf("queryConnectInfo error",err.Error())
+		return ConnectInfoData{},nil
+	}
+	m := info.m_info
 	m_info_map := make(map[string]string)
-	if len(m)!=0 {
-		err := json.Unmarshal(m,&m_info_map)
-		if err!=nil {
+	if len(m) != 0 {
+		err := json.Unmarshal(m, &m_info_map)
+		if err != nil {
 			log.Printf("Unmarshal error")
 		}
 	}
-	con_info_data:=ConnectInfoData{
+	con_info_data := ConnectInfoData{
 		"",
 		info.ip,
 		m_info_map,
 	}
-	return con_info_data
+	return con_info_data,nil
 }
-func queryConnectInfo(id string) ConnectInfo {
+func queryConnectInfo(id string) (ConnectInfo,error) {
 	rows, err := db.Query("select ip,monitor_info from tbl_monitor_record where uuid=?", id)
+	info := ConnectInfo{}
 	if err != nil {
 		log.Printf("query error")
+		return info,err
+	} else {
+		for rows.Next() {
+			err = rows.Scan(&info.ip, &info.m_info)
+		}
+		defer rows.Close()
+		return info,nil
 	}
-	info := ConnectInfo{}
-	for rows.Next() {
-		err = rows.Scan(&info.ip, &info.m_info)
-	}
-	defer rows.Close()
-	return info
 }
-func CloseDBHandle()  {
+func CloseDBHandle() {
 	db.Close()
 }
 func GetlldpMonitorInfo(id string) []ConnectInfoData {
@@ -88,17 +94,17 @@ func GetlldpMonitorInfo(id string) []ConnectInfoData {
 	}
 	defer rows.Close()
 	conninfos := []ConnectInfoData{}
-	for i:=0; i< len(infos);i++  {
+	for i := 0; i < len(infos); i++ {
 		info := infos[i]
-		m:=info.m_info
+		m := info.m_info
 		m_info_map := make(map[string]string)
-		if len(m)!=0 {
-			err := json.Unmarshal(m,&m_info_map)
-			if err!=nil {
+		if len(m) != 0 {
+			err := json.Unmarshal(m, &m_info_map)
+			if err != nil {
 				log.Printf("Unmarshal error")
 			}
 		}
-		con_info_data:=ConnectInfoData{
+		con_info_data := ConnectInfoData{
 			info.uuid,
 			info.ip,
 			m_info_map,
@@ -108,53 +114,53 @@ func GetlldpMonitorInfo(id string) []ConnectInfoData {
 	return conninfos
 }
 
-func DoQueryWithTwoResult(desc *prometheus.Desc,db *sql.DB, ch chan<- prometheus.Metric,querystring string)  {
-	keyRows,err := db.Query(querystring)
-	if err!=nil {
-		log.Printf("query error:",err)
+func DoQueryWithTwoResult(desc *prometheus.Desc, db *sql.DB, ch chan<- prometheus.Metric, querystring string) {
+	keyRows, err := db.Query(querystring)
+	if err != nil {
+		log.Printf("query error:", err)
 		return
 	}
 	defer keyRows.Close()
 	var str string
 	var value uint64
 	for keyRows.Next() {
-		if err := keyRows.Scan(&str,&value); err !=nil {
-			log.Printf("error:",err)
+		if err := keyRows.Scan(&str, &value); err != nil {
+			log.Printf("error:", err)
 			return
 		}
-		ch <- prometheus.MustNewConstMetric(desc,prometheus.GaugeValue,float64(value),)
+		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(value), )
 	}
 }
 
-func DoQueryWithOneResult(desc *prometheus.Desc,db *sql.DB, ch chan<- prometheus.Metric,querystring string)  {
-	listRows,err := db.Query(querystring)
-	if err!=nil {
-		log.Printf("query error:",err)
+func DoQueryWithOneResult(desc *prometheus.Desc, db *sql.DB, ch chan<- prometheus.Metric, querystring string) {
+	listRows, err := db.Query(querystring)
+	if err != nil {
+		log.Printf("query error:", err)
 		return
 	}
 	defer listRows.Close()
 	var value uint64
 	for listRows.Next() {
-		if err := listRows.Scan(&value); err !=nil {
-			log.Printf("error:",err)
+		if err := listRows.Scan(&value); err != nil {
+			log.Printf("error:", err)
 			return
 		}
-		ch <- prometheus.MustNewConstMetric(desc,prometheus.GaugeValue,float64(value),)
+		ch <- prometheus.MustNewConstMetric(desc, prometheus.GaugeValue, float64(value), )
 	}
 }
 
 func DoQueryWithOneStringResult(db *sql.DB, querystring string) string {
-	listRows,err := db.Query(querystring)
-	if err!=nil {
-		log.Printf("query error:",err)
+	listRows, err := db.Query(querystring)
+	if err != nil {
+		log.Printf("query error:", err)
 		return ""
 	}
 	defer listRows.Close()
 	var str string
 	var value string
 	for listRows.Next() {
-		if err := listRows.Scan(&str,&value); err !=nil {
-			log.Printf("error:",err)
+		if err := listRows.Scan(&str, &value); err != nil {
+			log.Printf("error:", err)
 			return ""
 		}
 	}
