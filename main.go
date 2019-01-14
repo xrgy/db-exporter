@@ -8,9 +8,9 @@ import (
 	"github.com/gorilla/mux"
 	"strings"
 	"fmt"
-	"db-exporter/config"
 	"db-exporter/collectors/api"
 	"db-exporter/collectors"
+	"db-exporter/config"
 )
 
 

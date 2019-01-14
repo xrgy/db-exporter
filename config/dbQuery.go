@@ -4,33 +4,94 @@ import (
 	"os"
 	"log"
 	"time"
-	"encoding/json"
 	_ "github.com/go-sql-driver/mysql"
 	"database/sql"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/coreos/etcd/client"
+	"context"
+	"github.com/ghodss/yaml"
+	yaml2 "gopkg.in/yaml.v2"
 )
 
 var db *sql.DB
 
+type ETCDParameter struct {
+	Kind     string            `yaml:"kind"`
+	Metadata map[string]string `yaml:"metadata"`
+	Spec     Spec              `yaml:"spec"`
+	Status   map[string]string `yaml:"status"`
+}
+type Spec struct {
+	Ports     map[string]string `yaml:"ports"`
+	Selector  map[string]string `yaml:"selector"`
+	ClusterIP string            `yaml:"clusterIP"`
+	Stype     string            `yaml:"type"`
+}
 type ConnectInfoData struct {
 	Uuid        string
 	IP          string
-	Params_maps map[string]string
+	Databasename string
+	Username string
+	Password string
+	Port string
+	//Params_maps map[string]string
 }
 type Monitor_info []byte
 type ConnectInfo struct {
 	uuid   string
 	ip     string
+	databasename string
+	username string
+	password string
+	port string
 	m_info Monitor_info
 }
 
+func readEtcdInfo(cfg client.Config, servicename string) string {
+	c, err := client.New(cfg)
+	if err != nil {
+		log.Printf("%s", err.Error())
+		return ""
+	}
+	//m := make(map[string]string)
+	kapi := client.NewKeysAPI(c)
+	resp1, err := kapi.Get(context.Background(), "/registry/services/specs/default/"+servicename, nil)
+	if err != nil {
+		return ""
+	} else {
+		log.Printf("etcd node value:"+resp1.Node.Value)
+		param := &ETCDParameter{}
+		v_rw := []byte(resp1.Node.Value)
+		y_rw, err := yaml.JSONToYAML(v_rw)
+		if err != nil {
+			log.Printf("%s", err.Error())
+			return ""
+		}
+
+		yaml2.Unmarshal(y_rw, &param)
+		return param.Spec.ClusterIP
+
+	}
+
+}
 func GetDBHandle() *sql.DB {
 	var err error
+	//cfg := client.Config{
+	//	Endpoints:               []string{"http://" + os.Getenv("ETCD_ENDPOINT")},
+	//	Transport:               client.DefaultTransport,
+	//	HeaderTimeoutPerRequest: time.Second,
+	//}
 	DBUsername := os.Getenv("DB_USERNAME")
 	DBPassword := os.Getenv("DB_PASSWORD")
 	DBEndpoint := os.Getenv("DB_ENDPOINT")
 	DBDatabase := os.Getenv("DB_DATABASE")
+	//servicename := strings.Split(DBEndpoint, ":")[0]
+	//serviceport := strings.Split(DBEndpoint, ":")[1]
+	//ip := readEtcdInfo(cfg, servicename)
+	//dsn := DBUsername + ":" + DBPassword + "@(" + ip + ":" + serviceport + ")/" + DBDatabase
 	dsn := DBUsername + ":" + DBPassword + "@(" + DBEndpoint + ")/" + DBDatabase
+
+	log.Printf("connectionurl:"+dsn)
 	db, err = sql.Open("mysql", dsn)
 	if err != nil {
 		log.Printf("get DB handle error: %v", err)
@@ -43,75 +104,46 @@ func GetDBHandle() *sql.DB {
 	}
 	return db
 }
-func GetMonitorInfo(id string) (ConnectInfoData,error) {
-	info,err := queryConnectInfo(id)
-	if err!=nil {
-		log.Printf("queryConnectInfo error",err.Error())
-		return ConnectInfoData{},nil
+func GetMonitorInfo(id string) (ConnectInfoData, error) {
+	info, err := queryConnectInfo(id)
+	if err != nil {
+		log.Printf("queryConnectInfo error", err.Error())
+		return ConnectInfoData{}, nil
 	}
-	m := info.m_info
-	m_info_map := make(map[string]string)
-	if len(m) != 0 {
-		err := json.Unmarshal(m, &m_info_map)
-		if err != nil {
-			log.Printf("Unmarshal error")
-		}
-	}
+	//m := info.m_info
+	//m_info_map := make(map[string]string)
+	//if len(m) != 0 {
+	//	err := json.Unmarshal(m, &m_info_map)
+	//	if err != nil {
+	//		log.Printf("Unmarshal error")
+	//	}
+	//}
 	con_info_data := ConnectInfoData{
 		"",
 		info.ip,
-		m_info_map,
+		info.databasename,
+		info.username,
+		info.password,
+		info.port,
 	}
-	return con_info_data,nil
+	return con_info_data, nil
 }
-func queryConnectInfo(id string) (ConnectInfo,error) {
-	rows, err := db.Query("select ip,monitor_info from tbl_monitor_record where uuid=?", id)
+func queryConnectInfo(id string) (ConnectInfo, error) {
+	rows, err := db.Query("select ip,databasename,username,password,port from tbl_db_monitor_record where uuid=?", id)
 	info := ConnectInfo{}
 	if err != nil {
 		log.Printf("query error")
-		return info,err
+		return info, err
 	} else {
 		for rows.Next() {
-			err = rows.Scan(&info.ip, &info.m_info)
+			err = rows.Scan(&info.ip,&info.databasename,&info.username,&info.password,&info.port)
 		}
 		defer rows.Close()
-		return info,nil
+		return info, nil
 	}
 }
 func CloseDBHandle() {
 	db.Close()
-}
-func GetlldpMonitorInfo(id string) []ConnectInfoData {
-	rows, err := db.Query("select uuid,ip,monitor_info from tbl_monitor_record where deleted=0 and middle_resource_type_id=?", id)
-	if err != nil {
-		log.Printf("query error")
-	}
-	infos := []ConnectInfo{}
-	for rows.Next() {
-		info := ConnectInfo{}
-		err = rows.Scan(&info.uuid, &info.ip, &info.m_info)
-		infos = append(infos, info)
-	}
-	defer rows.Close()
-	conninfos := []ConnectInfoData{}
-	for i := 0; i < len(infos); i++ {
-		info := infos[i]
-		m := info.m_info
-		m_info_map := make(map[string]string)
-		if len(m) != 0 {
-			err := json.Unmarshal(m, &m_info_map)
-			if err != nil {
-				log.Printf("Unmarshal error")
-			}
-		}
-		con_info_data := ConnectInfoData{
-			info.uuid,
-			info.ip,
-			m_info_map,
-		}
-		conninfos = append(conninfos, con_info_data)
-	}
-	return conninfos
 }
 
 func DoQueryWithTwoResult(desc *prometheus.Desc, db *sql.DB, ch chan<- prometheus.Metric, querystring string) {

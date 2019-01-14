@@ -36,10 +36,10 @@ func getMysqlData(ch chan<- prometheus.Metric,target string) error {
 		return err
 	}
 	ip := monitor_info.IP
-	username := monitor_info.Params_maps["username"]
-	password := monitor_info.Params_maps["password"]
-	databasename := monitor_info.Params_maps["databasename"]
-	port := monitor_info.Params_maps["port"]
+	username := monitor_info.Username
+	password := monitor_info.Password
+	databasename := monitor_info.Databasename
+	port := monitor_info.Port
 	if ip =="" || username == "" ||password == "" || port == "" || databasename == "" {
 		mysql_scrapeErrors.Inc()
 		ch <- prometheus.MustNewConstMetric(mysql_monitorstatus,prometheus.GaugeValue,0)
